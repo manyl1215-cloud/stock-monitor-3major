@@ -191,16 +191,18 @@ class TelegramNotifier:
                 text += f"{emoji} {stock['code']} {stock['name']}: "
                 text += f"`{stock['total']:+.0f}` 張\n"
         
-        # 如果沒有大額交易，顯示前10大買賣超
-        if not stock_analysis.get('large_trades_super') and not stock_analysis.get('large_trades'):
+        # 總是顯示前10大買賣超（除非大額交易已經很多了）
+        num_large = len(stock_analysis.get('large_trades_super', [])) + len(stock_analysis.get('large_trades', []))
+        
+        if num_large < 10:  # 如果大額交易少於10筆，補充顯示買賣超排行
             # 前10大買超
             if stock_analysis.get('top_buys'):
                 text += "\n🟢 *前10大買超*\n"
                 
-                for stock in stock_analysis['top_buys'][:10]:
-                    text += f"• {stock['code']} {stock['name']}: "
+                for i, stock in enumerate(stock_analysis['top_buys'][:10], 1):
+                    text += f"{i}. {stock['code']} {stock['name']}: "
                     text += f"`+{stock['total']:.0f}` 張\n"
-                    text += f"  (外: `{stock['foreign']:+.0f}` | "
+                    text += f"   (外: `{stock['foreign']:+.0f}` | "
                     text += f"投: `{stock['trust']:+.0f}` | "
                     text += f"自: `{stock['dealer']:+.0f}`)\n"
             
@@ -208,10 +210,10 @@ class TelegramNotifier:
             if stock_analysis.get('top_sells'):
                 text += "\n🔴 *前10大賣超*\n"
                 
-                for stock in stock_analysis['top_sells'][:10]:
-                    text += f"• {stock['code']} {stock['name']}: "
+                for i, stock in enumerate(stock_analysis['top_sells'][:10], 1):
+                    text += f"{i}. {stock['code']} {stock['name']}: "
                     text += f"`{stock['total']:.0f}` 張\n"
-                    text += f"  (外: `{stock['foreign']:+.0f}` | "
+                    text += f"   (外: `{stock['foreign']:+.0f}` | "
                     text += f"投: `{stock['trust']:+.0f}` | "
                     text += f"自: `{stock['dealer']:+.0f}`)\n"
         
