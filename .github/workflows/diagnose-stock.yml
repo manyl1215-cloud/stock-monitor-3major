@@ -24,18 +24,19 @@ jobs:
         import json
         
         print("=" * 70)
-        print("🔍 個股三大法人資料結構診斷")
+        print("🔍 個股三大法人資料結構診斷 v2")
         print("=" * 70)
         
         test_date = datetime.now()
-        roc_year = test_date.year - 1911
-        roc_date = f"{roc_year}{test_date.month:02d}{test_date.day:02d}"
         
-        print(f"\n📅 測試日期: {test_date.strftime('%Y-%m-%d')} (民國 {roc_date})")
+        # 測試不同的日期格式
+        roc_date = f"{test_date.year - 1911}{test_date.month:02d}{test_date.day:02d}"
+        western_date = test_date.strftime("%Y%m%d")
+        
+        print(f"\n📅 測試日期: {test_date.strftime('%Y-%m-%d')}")
+        print(f"   民國格式: {roc_date}")
+        print(f"   西元格式: {western_date}")
         print("-" * 70)
-        
-        # 個股三大法人 API
-        url = f"https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date={roc_date}"
         
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -45,45 +46,75 @@ jobs:
             "X-Requested-With": "XMLHttpRequest"
         }
         
+        # 測試格式1：民國日期
+        print("\n【測試1】民國日期格式")
+        url1 = f"https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date={roc_date}"
+        print(f"URL: {url1}")
+        
         try:
-            response = requests.get(url, headers=headers, timeout=30)
-            
+            response = requests.get(url1, headers=headers, timeout=30)
             if response.status_code == 200:
                 data = response.json()
-                
-                print(f"\n📊 回應狀態: {data.get('stat', '無')}")
-                print(f"📅 資料日期: {data.get('date', '無')}")
-                print(f"📝 標題: {data.get('title', '無')}")
-                
-                if "fields" in data:
-                    print(f"\n📋 欄位名稱 (fields):")
-                    for i, field in enumerate(data["fields"]):
-                        print(f"   [{i}] {field}")
-                
-                if "data" in data:
-                    print(f"\n📦 資料內容 (data):")
-                    print(f"   總筆數: {len(data['data'])}")
-                    
-                    print(f"\n🔍 前 5 筆資料範例:")
-                    for i, row in enumerate(data["data"][:5]):
-                        print(f"\n   第 {i} 列:")
-                        print(f"      長度: {len(row)}")
-                        print(f"      內容: {row}")
-                
-                # 顯示完整 JSON（前 2000 字元）
-                print(f"\n📄 完整 JSON 結構（前 2000 字元）:")
-                print("-" * 70)
-                print(json.dumps(data, ensure_ascii=False, indent=2)[:2000])
-                print("...")
-                
-                print("\n" + "=" * 70)
-                print("✅ 診斷完成！")
-                print("=" * 70)
-                
-            else:
-                print(f"❌ HTTP 錯誤: {response.status_code}")
-                
+                print(f"回應狀態: {data.get('stat', '無')}")
+                if data.get('stat') == 'OK':
+                    print("✅ 民國格式成功！")
         except Exception as e:
             print(f"❌ 錯誤: {str(e)}")
+        
+        # 測試格式2：西元日期
+        print("\n【測試2】西元日期格式")
+        url2 = f"https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date={western_date}"
+        print(f"URL: {url2}")
+        
+        try:
+            response = requests.get(url2, headers=headers, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                print(f"回應狀態: {data.get('stat', '無')}")
+                if data.get('stat') == 'OK':
+                    print("✅ 西元格式成功！")
+                    
+                    print(f"\n📊 資料日期: {data.get('date', '無')}")
+                    print(f"📝 標題: {data.get('title', '無')}")
+                    
+                    if "fields" in data:
+                        print(f"\n📋 欄位名稱 (fields):")
+                        for i, field in enumerate(data["fields"]):
+                            print(f"   [{i}] {field}")
+                    
+                    if "data" in data and len(data["data"]) > 0:
+                        print(f"\n📦 資料總筆數: {len(data['data'])}")
+                        
+                        print(f"\n🔍 前 5 筆資料範例:")
+                        for i, row in enumerate(data["data"][:5]):
+                            print(f"\n   第 {i} 列:")
+                            print(f"      長度: {len(row)}")
+                            print(f"      內容: {row}")
+                        
+                        print(f"\n📄 完整 JSON（前 2000 字元）:")
+                        print("-" * 70)
+                        print(json.dumps(data, ensure_ascii=False, indent=2)[:2000])
+                        print("...")
+        except Exception as e:
+            print(f"❌ 錯誤: {str(e)}")
+        
+        # 測試格式3：不帶日期（取最新）
+        print("\n【測試3】不帶日期參數")
+        url3 = "https://www.twse.com.tw/rwd/zh/fund/T86?response=json"
+        print(f"URL: {url3}")
+        
+        try:
+            response = requests.get(url3, headers=headers, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                print(f"回應狀態: {data.get('stat', '無')}")
+                if data.get('stat') == 'OK':
+                    print(f"✅ 不帶日期成功！取得 {data.get('date', '?')} 的資料")
+        except Exception as e:
+            print(f"❌ 錯誤: {str(e)}")
+        
+        print("\n" + "=" * 70)
+        print("✅ 診斷完成！")
+        print("=" * 70)
         
         EOF
