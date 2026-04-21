@@ -191,6 +191,30 @@ class TelegramNotifier:
                 text += f"{emoji} {stock['code']} {stock['name']}: "
                 text += f"`{stock['total']:+.0f}` 張\n"
         
+        # 如果沒有大額交易，顯示前10大買賣超
+        if not stock_analysis.get('large_trades_super') and not stock_analysis.get('large_trades'):
+            # 前10大買超
+            if stock_analysis.get('top_buys'):
+                text += "\n🟢 *前10大買超*\n"
+                
+                for stock in stock_analysis['top_buys'][:10]:
+                    text += f"• {stock['code']} {stock['name']}: "
+                    text += f"`+{stock['total']:.0f}` 張\n"
+                    text += f"  (外: `{stock['foreign']:+.0f}` | "
+                    text += f"投: `{stock['trust']:+.0f}` | "
+                    text += f"自: `{stock['dealer']:+.0f}`)\n"
+            
+            # 前10大賣超
+            if stock_analysis.get('top_sells'):
+                text += "\n🔴 *前10大賣超*\n"
+                
+                for stock in stock_analysis['top_sells'][:10]:
+                    text += f"• {stock['code']} {stock['name']}: "
+                    text += f"`{stock['total']:.0f}` 張\n"
+                    text += f"  (外: `{stock['foreign']:+.0f}` | "
+                    text += f"投: `{stock['trust']:+.0f}` | "
+                    text += f"自: `{stock['dealer']:+.0f}`)\n"
+        
         # 連續買超
         if stock_analysis.get('consecutive_buys'):
             text += "\n📊 *連續買超（≥3天）*\n"
