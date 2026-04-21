@@ -123,6 +123,8 @@ class StockAnalyzer:
             Dict: {
                 'large_trades_super': [...],
                 'large_trades': [...],
+                'top_buys': [...],           # 前20大買超
+                'top_sells': [...],          # 前20大賣超
                 'consecutive_buys': [...],
                 'consecutive_sells': [...]
             }
@@ -130,6 +132,8 @@ class StockAnalyzer:
         analysis = {
             'large_trades_super': [],  # 超大額交易
             'large_trades': [],         # 大額交易
+            'top_buys': [],             # 前20大買超
+            'top_sells': [],            # 前20大賣超
             'consecutive_buys': [],     # 連續買超
             'consecutive_sells': []     # 連續賣超
         }
@@ -168,7 +172,20 @@ class StockAnalyzer:
                         'consecutive': consecutive
                     })
         
-        # 排序
+        # 取得所有股票的買賣超排行（前20大）
+        all_stocks = today_data['stocks']
+        
+        # 買超排行（total > 0）
+        buys = [s for s in all_stocks if s['total'] > 0]
+        buys.sort(key=lambda x: x['total'], reverse=True)
+        analysis['top_buys'] = buys[:20]
+        
+        # 賣超排行（total < 0）
+        sells = [s for s in all_stocks if s['total'] < 0]
+        sells.sort(key=lambda x: x['total'])  # 由小到大（負數）
+        analysis['top_sells'] = sells[:20]
+        
+        # 排序其他類別
         analysis['large_trades_super'].sort(key=lambda x: abs(x['total']), reverse=True)
         analysis['large_trades'].sort(key=lambda x: abs(x['total']), reverse=True)
         analysis['consecutive_buys'].sort(key=lambda x: x['consecutive']['days'], reverse=True)
