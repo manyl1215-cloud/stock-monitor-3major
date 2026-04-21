@@ -66,6 +66,25 @@ class StockMonitor:
             logger.info(f"開始執行三大法人監測 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             logger.info("="*60)
             
+            # 檢查 Telegram 設定
+            if not self.emailer.bot_token:
+                error_msg = "❌ 錯誤：未設定 TELEGRAM_BOT_TOKEN"
+                logger.error(error_msg)
+                logger.error("請在 GitHub Secrets 中設定 TELEGRAM_BOT_TOKEN")
+                logger.error("或在 .env 檔案中設定")
+                raise ValueError(error_msg)
+            
+            if not self.emailer.chat_id:
+                error_msg = "❌ 錯誤：未設定 TELEGRAM_CHAT_ID"
+                logger.error(error_msg)
+                logger.error("請在 GitHub Secrets 中設定 TELEGRAM_CHAT_ID")
+                logger.error("或在 .env 檔案中設定")
+                raise ValueError(error_msg)
+            
+            logger.info(f"✅ Telegram 設定正常")
+            logger.info(f"   Bot Token: {self.emailer.bot_token[:20]}...")
+            logger.info(f"   Chat ID: {self.emailer.chat_id}")
+            
             # 1. 抓取資料
             logger.info("步驟 1/5: 抓取三大法人資料...")
             market_data = self.fetcher.fetch_market_data()
@@ -73,8 +92,7 @@ class StockMonitor:
             
             if not market_data and not stock_data:
                 logger.warning("無法取得資料，可能是假日或資料尚未更新")
-                self.emailer.send_error_email(
-                    self.email_to,
+                self.emailer.send_error_notification(
                     "無法取得三大法人數據",
                     "可能是假日或資料尚未更新，請稍後再試"
                 )
@@ -95,7 +113,6 @@ class StockMonitor:
             # 5. 發送報告
             logger.info("步驟 5/5: 發送報告...")
             self.emailer.send_report(
-                to_email=self.email_to,
                 market_data=market_data,
                 stock_data=stock_data,
                 analysis=analysis,
@@ -106,13 +123,20 @@ class StockMonitor:
             logger.info("執行完成！")
             logger.info("="*60)
             
+        except ValueError as e:
+            # 設定錯誤
+            logger.error(f"設定錯誤: {str(e)}")
+            raise
+            
         except Exception as e:
             logger.error(f"執行過程發生錯誤: {str(e)}", exc_info=True)
-            self.emailer.send_error_email(
-                self.email_to,
-                "系統執行錯誤",
-                f"錯誤訊息: {str(e)}"
-            )
+            try:
+                self.emailer.send_error_notification(
+                    "系統執行錯誤",
+                    f"錯誤訊息: {str(e)}"
+                )
+            except:
+                logger.error("無法發送錯誤通知")
             raise
 
 
