@@ -1,0 +1,121 @@
+name: 證交所連線診斷
+
+on:
+  workflow_dispatch:  # 手動觸發
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 設定 Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: 安裝 requests
+      run: pip install requests
+    
+    - name: 執行診斷測試
+      run: |
+        python3 << 'PYTHON_SCRIPT'
+        import requests
+        from datetime import datetime, timedelta
+        
+        print("=" * 70)
+        print("🔍 台灣證券交易所連線診斷")
+        print("=" * 70)
+        
+        # 測試最近 5 天
+        found = False
+        for days_ago in range(5):
+            test_date = datetime.now() - timedelta(days=days_ago)
+            roc_year = test_date.year - 1911
+            roc_date = f"{roc_year}{test_date.month:02d}{test_date.day:02d}"
+            
+            print(f"\n📅 測試 Day {days_ago}: {test_date.strftime('%Y-%m-%d')} (民國 {roc_date})")
+            print("-" * 70)
+            
+            url = f"https://www.twse.com.tw/rwd/zh/fund/BFI82U?response=json&date={roc_date}"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Referer': 'https://www.twse.com.tw/zh/page/trading/fund/BFI82U.html',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+            
+            try:
+                print(f"🌐 URL: {url}")
+                response = requests.get(url, headers=headers, timeout=30)
+                print(f"📡 HTTP 狀態碼: {response.status_code}")
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        stat = data.get('stat', '無')
+                        print(f"📊 JSON stat: {stat}")
+                        
+                        if stat == 'OK' and data.get('data'):
+                            print(f"✅ 資料筆數: {len(data['data'])}")
+                            
+                            if data['data']:
+                                first = data['data'][0]
+                                print(f"\n📋 第一筆資料:")
+                                print(f"   欄位數量: {len(first)}")
+                                if len(first) >= 6:
+                                    print(f"   [0] 日期: {first[0]}")
+                                    print(f"   [1] 外資: {first[1]}")
+                                    print(f"   [2] 投信: {first[2]}")
+                                    print(f"   [3] 自營商(自行): {first[3]}")
+                                    print(f"   [4] 自營商(避險): {first[4]}")
+                                    print(f"   [5] 合計: {first[5]}")
+                                    print("\n🎉 找到有效資料！系統應該可以正常運作")
+                                    found = True
+                                    break
+                                else:
+                                    print(f"   ⚠️  欄位不足: {first}")
+                        else:
+                            print(f"   ℹ️  回應訊息: {data.get('notes', ['無'])[0] if data.get('notes') else '無資料'}")
+                            
+                    except Exception as e:
+                        print(f"   ❌ JSON 解析失敗: {str(e)}")
+                        print(f"   回應內容: {response.text[:300]}")
+                
+                elif response.status_code == 307:
+                    print("❌ 307 重定向錯誤")
+                    print("   可能原因: IP 被證交所安全機制阻擋")
+                    print(f"   回應內容: {response.text[:200]}")
+                
+                else:
+                    print(f"❌ HTTP 錯誤: {response.status_code}")
+                    print(f"   回應內容: {response.text[:200]}")
+                    
+            except requests.exceptions.Timeout:
+                print("❌ 連線逾時 (超過 30 秒)")
+            except requests.exceptions.ConnectionError as e:
+                print(f"❌ 連線失敗: {str(e)}")
+            except Exception as e:
+                print(f"❌ 未預期錯誤: {str(e)}")
+        
+        print("\n" + "=" * 70)
+        
+        if found:
+            print("✅ 診斷結果: 成功")
+            print("💡 建議: 調整執行時間到晚上 7-8 點，資料會更穩定")
+        else:
+            print("❌ 診斷結果: 失敗")
+            print("\n🔍 可能原因:")
+            print("   1. GitHub Actions 的 IP 被證交所封鎖 (最可能)")
+            print("   2. 證交所網站維護中")
+            print("   3. 連續假期（非交易日）")
+            print("   4. 執行時間太早（資料尚未更新）")
+            print("\n💡 建議解決方案:")
+            print("   A. 改用 Yahoo Finance API（推薦）")
+            print("   B. 使用代理伺服器")
+            print("   C. 改用其他台股資料源")
+        
+        print("=" * 70)
+        
+        PYTHON_SCRIPT
