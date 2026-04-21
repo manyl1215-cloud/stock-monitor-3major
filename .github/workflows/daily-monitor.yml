@@ -36,12 +36,8 @@ jobs:
     
     - name: 建立 .env 檔案
       run: |
-        echo "EMAIL_TO=${{ secrets.EMAIL_TO }}" >> .env
-        echo "SMTP_SERVER=smtp.gmail.com" >> .env
-        echo "SMTP_PORT=587" >> .env
-        echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> .env
-        echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> .env
-        echo "FROM_EMAIL=${{ secrets.SMTP_USER }}" >> .env
+        echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> .env
+        echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}" >> .env
         echo "WATCH_LIST=${{ secrets.WATCH_LIST }}" >> .env
     
     - name: 執行監測系統
