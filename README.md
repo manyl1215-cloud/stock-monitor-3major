@@ -1,1 +1,0 @@
-# stock-monitor-3major
