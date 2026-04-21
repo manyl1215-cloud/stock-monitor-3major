@@ -1,0 +1,89 @@
+name: 個股資料格式診斷
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 設定 Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: 安裝 requests
+      run: pip install requests
+    
+    - name: 執行個股資料診斷
+      run: |
+        python3 <<'EOF'
+        import requests
+        from datetime import datetime
+        import json
+        
+        print("=" * 70)
+        print("🔍 個股三大法人資料結構診斷")
+        print("=" * 70)
+        
+        test_date = datetime.now()
+        roc_year = test_date.year - 1911
+        roc_date = f"{roc_year}{test_date.month:02d}{test_date.day:02d}"
+        
+        print(f"\n📅 測試日期: {test_date.strftime('%Y-%m-%d')} (民國 {roc_date})")
+        print("-" * 70)
+        
+        # 個股三大法人 API
+        url = f"https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date={roc_date}"
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": "https://www.twse.com.tw/zh/page/trading/fund/T86.html",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                print(f"\n📊 回應狀態: {data.get('stat', '無')}")
+                print(f"📅 資料日期: {data.get('date', '無')}")
+                print(f"📝 標題: {data.get('title', '無')}")
+                
+                if "fields" in data:
+                    print(f"\n📋 欄位名稱 (fields):")
+                    for i, field in enumerate(data["fields"]):
+                        print(f"   [{i}] {field}")
+                
+                if "data" in data:
+                    print(f"\n📦 資料內容 (data):")
+                    print(f"   總筆數: {len(data['data'])}")
+                    
+                    print(f"\n🔍 前 5 筆資料範例:")
+                    for i, row in enumerate(data["data"][:5]):
+                        print(f"\n   第 {i} 列:")
+                        print(f"      長度: {len(row)}")
+                        print(f"      內容: {row}")
+                
+                # 顯示完整 JSON（前 2000 字元）
+                print(f"\n📄 完整 JSON 結構（前 2000 字元）:")
+                print("-" * 70)
+                print(json.dumps(data, ensure_ascii=False, indent=2)[:2000])
+                print("...")
+                
+                print("\n" + "=" * 70)
+                print("✅ 診斷完成！")
+                print("=" * 70)
+                
+            else:
+                print(f"❌ HTTP 錯誤: {response.status_code}")
+                
+        except Exception as e:
+            print(f"❌ 錯誤: {str(e)}")
+        
+        EOF
