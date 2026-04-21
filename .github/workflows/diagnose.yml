@@ -1,0 +1,31 @@
+name: 診斷測試
+
+on:
+  # 允許手動觸發
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout 程式碼
+      uses: actions/checkout@v4
+    
+    - name: 設定 Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: 安裝相依套件
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+    
+    - name: 執行診斷測試
+      run: python diagnose.py
+    
+    - name: 顯示系統時間
+      run: |
+        echo "UTC 時間: $(date -u)"
+        echo "台灣時間: TZ='Asia/Taipei' date"
