@@ -179,13 +179,15 @@ class TWSEFetcher:
         # 嘗試最近 5 天
         for days_ago in range(5):
             test_date = datetime.now() - timedelta(days=days_ago)
-            roc_date = self._get_roc_date(test_date)
             
-            logger.info(f"嘗試日期: {test_date.strftime('%Y-%m-%d')} (民國 {roc_date})")
+            # 個股 API 使用西元日期格式
+            western_date = test_date.strftime("%Y%m%d")
+            
+            logger.info(f"嘗試日期: {test_date.strftime('%Y-%m-%d')} (西元 {western_date})")
             
             params = {
                 'response': 'json',
-                'date': roc_date
+                'date': western_date  # 使用西元日期
             }
             
             data = self._fetch_with_retry(self.stock_url, params)
@@ -196,13 +198,18 @@ class TWSEFetcher:
                 
                 for row in data['data']:
                     try:
-                        # 格式: [代號, 名稱, 外資, 投信, 自營商(自行買賣), 自營商(避險), 合計]
+                        # 個股資料格式：
+                        # [0] 證券代號
+                        # [1] 證券名稱
+                        # [4] 外陸資買賣超股數(不含外資自營商)
+                        # [10] 投信買賣超股數
+                        # [11] 自營商買賣超股數
                         
                         # 檢查欄位數量
-                        if len(row) < 7:
+                        if len(row) < 12:
                             errors += 1
-                            if errors <= 3:  # 只記錄前3個錯誤
-                                logger.warning(f"個股資料欄位不足: 預期7個，實際{len(row)}個，資料: {row[:3]}")
+                            if errors <= 3:
+                                logger.warning(f"個股資料欄位不足: 預期12個，實際{len(row)}個")
                             continue
                         
                         code = str(row[0]).strip()
@@ -212,19 +219,24 @@ class TWSEFetcher:
                         if watch_list and code not in watch_list:
                             continue
                         
+                        # 取得買賣超股數（單位：股）
+                        foreign_shares = float(str(row[4]).replace(',', ''))  # 外資
+                        trust_shares = float(str(row[10]).replace(',', ''))  # 投信
+                        dealer_shares = float(str(row[11]).replace(',', ''))  # 自營商
+                        
                         stocks.append({
                             'code': code,
                             'name': name,
-                            'foreign': float(str(row[2]).replace(',', '')) / 1000,  # 轉張數
-                            'trust': float(str(row[3]).replace(',', '')) / 1000,
-                            'dealer': (float(str(row[4]).replace(',', '')) + float(str(row[5]).replace(',', ''))) / 1000,
-                            'total': float(str(row[6]).replace(',', '')) / 1000
+                            'foreign': foreign_shares / 1000,  # 轉張數
+                            'trust': trust_shares / 1000,
+                            'dealer': dealer_shares / 1000,
+                            'total': (foreign_shares + trust_shares + dealer_shares) / 1000
                         })
                         
                     except (IndexError, ValueError, AttributeError) as e:
                         errors += 1
                         if errors <= 3:
-                            logger.warning(f"解析個股資料失敗: {str(e)}, 資料: {row[:3] if len(row) >= 3 else row}")
+                            logger.warning(f"解析個股資料失敗: {str(e)}, 代號: {row[0] if len(row) > 0 else '?'}")
                         continue
                 
                 if errors > 0:
@@ -233,7 +245,7 @@ class TWSEFetcher:
                 if stocks:
                     logger.info(f"✅ 成功抓取個股資料: {len(stocks)} 檔股票")
                     return {
-                        'date': roc_date,
+                        'date': western_date,
                         'stocks': stocks
                     }
                 else:
