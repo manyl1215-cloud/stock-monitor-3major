@@ -102,20 +102,45 @@ class TWSEFetcher:
             if data and data.get('data'):
                 # 解析資料
                 # 格式: [日期, 外資, 投信, 自營商(自行買賣), 自營商(避險), 合計]
-                row = data['data'][0]
-                
-                result = {
-                    'date': row[0],
-                    'foreign': float(row[1].replace(',', '')) / 100000000,  # 轉億元
-                    'trust': float(row[2].replace(',', '')) / 100000000,
-                    'dealer': (float(row[3].replace(',', '')) + float(row[4].replace(',', ''))) / 100000000,
-                    'total': float(row[5].replace(',', '')) / 100000000
-                }
-                
-                logger.info(f"✅ 成功抓取大盤資料: {result['date']}")
-                logger.info(f"   外資: {result['foreign']:.2f}億, 投信: {result['trust']:.2f}億, 合計: {result['total']:.2f}億")
-                
-                return result
+                try:
+                    row = data['data'][0]
+                    
+                    # 顯示資料結構以便除錯
+                    logger.info(f"收到的資料欄位數量: {len(row)}")
+                    logger.info(f"資料內容預覽: {row[:min(6, len(row))]}")
+                    
+                    # 檢查欄位數量
+                    if len(row) < 6:
+                        logger.error(f"❌ 資料欄位不足！預期至少 6 個欄位，實際只有 {len(row)} 個")
+                        logger.error(f"完整資料: {row}")
+                        logger.info(f"該日期無有效資料，繼續嘗試...")
+                        continue
+                    
+                    result = {
+                        'date': str(row[0]),
+                        'foreign': float(str(row[1]).replace(',', '')) / 100000000,  # 轉億元
+                        'trust': float(str(row[2]).replace(',', '')) / 100000000,
+                        'dealer': (float(str(row[3]).replace(',', '')) + float(str(row[4]).replace(',', ''))) / 100000000,
+                        'total': float(str(row[5]).replace(',', '')) / 100000000
+                    }
+                    
+                    logger.info(f"✅ 成功抓取大盤資料: {result['date']}")
+                    logger.info(f"   外資: {result['foreign']:.2f}億, 投信: {result['trust']:.2f}億, 合計: {result['total']:.2f}億")
+                    
+                    return result
+                    
+                except IndexError as e:
+                    logger.error(f"❌ 解析資料時索引錯誤: {str(e)}")
+                    logger.error(f"資料列長度: {len(row) if 'row' in locals() else '未知'}")
+                    logger.error(f"資料內容: {row if 'row' in locals() else '無法取得'}")
+                    logger.info(f"該日期無有效資料，繼續嘗試...")
+                    continue
+                    
+                except (ValueError, KeyError, AttributeError) as e:
+                    logger.error(f"❌ 解析資料時發生錯誤: {str(e)}")
+                    logger.error(f"資料類型: {type(row[0]) if 'row' in locals() and len(row) > 0 else '未知'}")
+                    logger.info(f"該日期無有效資料，繼續嘗試...")
+                    continue
             
             logger.info(f"該日期無資料，繼續嘗試...")
         
@@ -163,31 +188,53 @@ class TWSEFetcher:
             
             if data and data.get('data'):
                 stocks = []
+                errors = 0
                 
                 for row in data['data']:
-                    # 格式: [代號, 名稱, 外資, 投信, 自營商(自行買賣), 自營商(避險), 合計]
-                    code = row[0].strip()
-                    name = row[1].strip()
-                    
-                    # 過濾監測清單
-                    if watch_list and code not in watch_list:
+                    try:
+                        # 格式: [代號, 名稱, 外資, 投信, 自營商(自行買賣), 自營商(避險), 合計]
+                        
+                        # 檢查欄位數量
+                        if len(row) < 7:
+                            errors += 1
+                            if errors <= 3:  # 只記錄前3個錯誤
+                                logger.warning(f"個股資料欄位不足: 預期7個，實際{len(row)}個，資料: {row[:3]}")
+                            continue
+                        
+                        code = str(row[0]).strip()
+                        name = str(row[1]).strip()
+                        
+                        # 過濾監測清單
+                        if watch_list and code not in watch_list:
+                            continue
+                        
+                        stocks.append({
+                            'code': code,
+                            'name': name,
+                            'foreign': float(str(row[2]).replace(',', '')) / 1000,  # 轉張數
+                            'trust': float(str(row[3]).replace(',', '')) / 1000,
+                            'dealer': (float(str(row[4]).replace(',', '')) + float(str(row[5]).replace(',', ''))) / 1000,
+                            'total': float(str(row[6]).replace(',', '')) / 1000
+                        })
+                        
+                    except (IndexError, ValueError, AttributeError) as e:
+                        errors += 1
+                        if errors <= 3:
+                            logger.warning(f"解析個股資料失敗: {str(e)}, 資料: {row[:3] if len(row) >= 3 else row}")
                         continue
-                    
-                    stocks.append({
-                        'code': code,
-                        'name': name,
-                        'foreign': float(row[2].replace(',', '')) / 1000,  # 轉張數
-                        'trust': float(row[3].replace(',', '')) / 1000,
-                        'dealer': (float(row[4].replace(',', '')) + float(row[5].replace(',', ''))) / 1000,
-                        'total': float(row[6].replace(',', '')) / 1000
-                    })
                 
-                logger.info(f"✅ 成功抓取個股資料: {len(stocks)} 檔股票")
+                if errors > 0:
+                    logger.warning(f"共有 {errors} 筆個股資料解析失敗")
                 
-                return {
-                    'date': roc_date,
-                    'stocks': stocks
-                }
+                if stocks:
+                    logger.info(f"✅ 成功抓取個股資料: {len(stocks)} 檔股票")
+                    return {
+                        'date': roc_date,
+                        'stocks': stocks
+                    }
+                else:
+                    logger.warning(f"該日期無有效個股資料")
+
             
             logger.info(f"該日期無資料，繼續嘗試...")
         
