@@ -3,7 +3,7 @@ name: 三大法人監測系統
 on:
   # 每天台灣時間晚上 6 點執行（UTC+8 = 10:00 UTC）
   schedule:
-    - cron: '0 11 * * *'
+    - cron: '0 10,13 * * 1-5'
   
   # 允許手動觸發
   workflow_dispatch:
